@@ -1,97 +1,82 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "poc-framework: run level0",
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--bin",
-				"level0"
-			],
-			"group": "build",
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"dependsOn": [
-				"poc-framework: build contracts"
-			]
-		},
-		{
-			"label": "poc-framework: run level1",
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--bin",
-				"level1"
-			],
-			"group": "build",
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"dependsOn": [
-				"poc-framework: build contracts"
-			]
-		},
-		{
-			"label": "poc-framework: run level2",
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--bin",
-				"level2"
-			],
-			"group": "build",
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"dependsOn": [
-				"poc-framework: build contracts"
-			]
-		},
-		{
-			"label": "poc-framework: run level3",
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--bin",
-				"level3"
-			],
-			"group": "build",
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"dependsOn": [
-				"poc-framework: build contracts"
-			]
-		},
-		{
-			"label": "poc-framework: run level4",
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--bin",
-				"level4"
-			],
-			"group": "build",
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"dependsOn": [
-				"poc-framework: build contracts"
-			]
-		},
-		{
-			"label": "poc-framework: build contracts",
-			"type": "cargo",
-			"command": "build-bpf",
-			"args": [
-				"--workspace"
-			],
-			"env": {
-				"RUST_BACKTRACE": "1"
-			},
-			"group": "build",
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "poc-framework: run level0",
+      "type": "process",
+      "command": "cargo",
+      "args": ["run", "--bin", "level0"],
+      "group": "build",
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "dependsOn": ["poc-framework: build contracts"]
+    },
+    {
+      "label": "poc-framework: run level1",
+      "type": "process",
+      "command": "cargo",
+      "args": ["run", "--bin", "level1"],
+      "group": "build",
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "dependsOn": ["poc-framework: build contracts"]
+    },
+    {
+      "label": "poc-framework: run level2",
+      "type": "process",
+      "command": "cargo",
+      "args": ["run", "--bin", "level2"],
+      "group": "build",
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "dependsOn": ["poc-framework: build contracts"]
+    },
+    {
+      "label": "poc-framework: run level3",
+      "type": "process",
+      "command": "cargo",
+      "args": ["run", "--bin", "level3"],
+      "group": "build",
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "dependsOn": ["poc-framework: build contracts"]
+    },
+    {
+      "label": "poc-framework: run level4",
+      "type": "process",
+      "command": "cargo",
+      "args": ["run", "--bin", "level4"],
+      "group": "build",
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "dependsOn": ["poc-framework: build contracts"]
+    },
+    {
+      "label": "poc-framework: build contracts",
+      "type": "process",
+      "command": "cargo",
+      "args": ["build-bpf", "--workspace"],
+      "options": {
+        "env": {
+          "RUST_BACKTRACE": "1"
+        }
+      },
+      "group": "build"
+    }
+  ]
 }
