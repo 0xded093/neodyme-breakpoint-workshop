@@ -6,6 +6,6 @@ All details are in the docs. To check it out online, visit [https://workshop.neo
 
 - ✅ Level 0
 - ✅ Level 1
-- ❌ Level 2
+- ✅ Level 2
 - ❌ Level 3
 - ❌ Level 4
