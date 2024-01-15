@@ -8,7 +8,7 @@ use poc_framework::{
 use solana_program::native_token::lamports_to_sol;
 
 use pocs::assert_tx_success;
-use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program, sysvar};
+use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 
 struct Challenge {
     hacker: Keypair,
@@ -19,6 +19,8 @@ struct Challenge {
 
 // Do your hacks in this function here
 fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+    use solana_program::rent::Rent;
+
     assert_tx_success(env.execute_as_transaction(
         &[level2::initialize(
             challenge.wallet_program,
@@ -61,7 +63,6 @@ fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
     );
     tx.print_named("hacker");
 }
-
 
 /*
 SETUP CODE BELOW
